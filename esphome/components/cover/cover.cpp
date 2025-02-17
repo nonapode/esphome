@@ -92,7 +92,13 @@ void CoverCall::perform() {
   if (this->toggle_.has_value()) {
     ESP_LOGD(TAG, "  Command: TOGGLE");
   }
-  this->parent_->control(*this);
+  auto inhibit = this->parent_->inhibit_;
+  if (inhibit && inhibit->check(this->stop_, this->position_, this->tilt_, this->toggle_)) {
+    ESP_LOGD(TAG, "  -- inhibited");
+    this->parent_->on_inhibit_.trigger(this->stop_, this->position_, this->tilt_, this->toggle_);
+  } else {
+    this->parent_->control(*this);
+  }
 }
 const optional<float> &CoverCall::get_position() const { return this->position_; }
 const optional<float> &CoverCall::get_tilt() const { return this->tilt_; }
@@ -163,6 +169,11 @@ void Cover::stop() {
   call.perform();
 }
 void Cover::add_on_state_callback(std::function<void()> &&f) { this->state_callback_.add(std::move(f)); }
+
+void Cover::set_inhibit(Condition<bool, const optional<float> &, const optional<float> &, const optional<bool> &> *condition) {
+  this->inhibit_ = condition;
+}
+
 void Cover::publish_state(bool save) {
   this->position = clamp(this->position, 0.0f, 1.0f);
   this->tilt = clamp(this->tilt, 0.0f, 1.0f);

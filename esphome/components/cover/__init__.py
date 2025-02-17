@@ -88,6 +88,8 @@ CoverClosedTrigger = cover_ns.class_(
 )
 
 CONF_ON_CLOSED = "on_closed"
+CONF_INHIBIT = "inhibit"
+CONF_ON_INHIBIT = f"on_{CONF_INHIBIT}"
 
 COVER_SCHEMA = (
     cv.ENTITY_BASE_SCHEMA.extend(web_server.WEBSERVER_SORTING_SCHEMA)
@@ -119,6 +121,8 @@ COVER_SCHEMA = (
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(CoverClosedTrigger),
                 }
             ),
+            cv.Optional(CONF_INHIBIT): automation.validate_condition,
+            cv.Optional(CONF_ON_INHIBIT): automation.validate_automation(),
         }
     )
 )
@@ -155,6 +159,19 @@ async def setup_cover_core_(var, config):
     if web_server_config := config.get(CONF_WEB_SERVER):
         await web_server.add_entity_config(var, web_server_config)
 
+    inhibit_args = [
+        (cg.bool_, "stop"),
+        (cg.optional.template(float).operator("const").operator("ref"), "position"),
+        (cg.optional.template(float).operator("const").operator("ref"), "tilt"),
+        (cg.optional.template(bool).operator("const").operator("ref"), "toggle"),
+    ]
+
+    if conf := config.get(CONF_INHIBIT):
+        condition = await automation.build_condition(conf, cg.TemplateArguments(*map(lambda x:x[0], inhibit_args)), inhibit_args)
+        cg.add(var.set_inhibit(condition))
+
+    for conf in config.get(CONF_ON_INHIBIT, []):
+        await automation.build_automation(var.get_on_inhibit_trigger(), inhibit_args, conf)
 
 async def register_cover(var, config):
     if not CORE.has_id(config[CONF_ID]):

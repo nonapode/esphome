@@ -1,5 +1,6 @@
 #pragma once
 
+#include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
@@ -64,6 +65,8 @@ class CoverCall {
   optional<float> tilt_{};
   optional<bool> toggle_{};
 };
+
+using InhibitFn = bool(const bool&, const optional<float>&, const optional<float>&, const optional<bool>&);
 
 /// Struct used to store the restored state of a cover
 struct CoverRestoreState {
@@ -147,6 +150,12 @@ class Cover : public EntityBase, public EntityBase_DeviceClass {
 
   void add_on_state_callback(std::function<void()> &&f);
 
+  Trigger<bool, const optional<float> &, const optional<float>&, const optional<bool> &> *get_on_inhibit_trigger() {
+    return &on_inhibit_;
+  }
+
+  void set_inhibit(Condition<bool, const optional<float> &, const optional<float> &, const optional<bool> &> *condition);
+
   /** Publish the current state of the cover.
    *
    * First set the .position, .tilt, etc values and then call this method
@@ -171,6 +180,9 @@ class Cover : public EntityBase, public EntityBase_DeviceClass {
   optional<CoverRestoreState> restore_state_();
 
   CallbackManager<void()> state_callback_{};
+
+  Condition<bool, const optional<float> &, const optional<float> &, const optional<bool>&> *inhibit_{};
+  Trigger<bool, const optional<float> &, const optional<float> &, const optional<bool> &> on_inhibit_;
 
   ESPPreferenceObject rtc_;
 };
